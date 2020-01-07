@@ -80,7 +80,7 @@ public class ClusterMain {
                         .withNewMetadata().addToLabels("server", "master").endMetadata()
                         .withNewSpec()
                         .addNewContainer().withName("master").withImage(image)
-                        .addNewPort().withContainerPort(8080).withHostPort(8080).withHostIP("127.0.0.1").endPort()
+                        .addNewPort().withContainerPort(8080).withHostPort(8080).endPort()
                         .addNewPort().withContainerPort(7077).withHostPort(7077).endPort()
                         .addToEnv(initDaemonStep)
                         .endContainer()
@@ -94,17 +94,18 @@ public class ClusterMain {
 
                 Thread.sleep(1000);
 
-                // Clean up the RC
-//                client.replicationControllers().inNamespace(namespace).withName(controller).delete();
-//                log("Deleted RCs");
 
                 Service service = client.services().inNamespace(namespace).createNew()
                         .withNewMetadata().withName("spark-service").endMetadata()
                         .withNewSpec()
-                        .addNewPort().withPort(80).withNewTargetPort().withIntVal(80).endTargetPort().endPort()
+                        .addNewPort().withPort(8080).withNodePort(31719).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
+                        .withType("NodePort")
+//                        .withSelector()
                         .endSpec()
                         .done();
                 log("Created service", service);
+
+                String apiVersion = client.replicationControllers().inNamespace(namespace).withName(controller).fromServer().get().getApiVersion();
 
                 log("Root paths:", client.rootPaths());
 
