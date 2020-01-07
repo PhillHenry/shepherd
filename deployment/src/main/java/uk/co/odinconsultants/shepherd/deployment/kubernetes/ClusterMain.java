@@ -7,6 +7,8 @@ import io.fabric8.kubernetes.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 /**
  * see https://github.com/big-data-europe/docker-spark
  * see https://github.com/fabric8io/kubernetes-client/blob/master/kubernetes-examples/src/main/java/io/fabric8/kubernetes/examples/FullExample.java
@@ -45,7 +47,7 @@ public class ClusterMain {
     public static void main(String[] args) throws InterruptedException {
         final String namespace = "sparkshepherd";
         final String image = "bde2020/spark-master:2.4.4-hadoop2.7";
-        final String controller = "spark-controller";
+        final String masterController = "spark-controller";
         try (final KubernetesClient client = client(args)) {
 
             try (Watch watch = client.replicationControllers().inNamespace(namespace).withResourceVersion("0").watch(watcher)) {
@@ -74,7 +76,7 @@ public class ClusterMain {
                 initDaemonStep.setValue("setup_spark");
 
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(controller).addToLabels("server", "master").endMetadata()
+                        .withNewMetadata().withName(masterController).addToLabels("server", "master").endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
                         .withNewMetadata().addToLabels("server", "master").endMetadata()
@@ -90,9 +92,9 @@ public class ClusterMain {
 
                 log("Created RC", client.replicationControllers().inNamespace(namespace).create(rc));
 
-                client.replicationControllers().inNamespace(namespace).withName(controller).scale(1);
+                client.replicationControllers().inNamespace(namespace).withName(masterController).scale(1);
 
-                Thread.sleep(1000);
+                Thread.sleep(10000);
 
 
                 Service service = client.services().inNamespace(namespace).createNew()
@@ -105,7 +107,35 @@ public class ClusterMain {
                         .done();
                 log("Created service", service);
 
-                String apiVersion = client.replicationControllers().inNamespace(namespace).withName(controller).fromServer().get().getApiVersion();
+                String apiVersion = client.replicationControllers().inNamespace(namespace).withName(masterController).fromServer().get().getApiVersion();
+
+                traverseEndpoints(namespace, client);
+
+                List<Pod> pods = listPods(namespace, client);
+
+                Pod masterPod = pods.get(0);
+
+                EnvVar sparkMaster = new EnvVar();
+                sparkMaster.setName("SPARK_MASTER");
+                sparkMaster.setValue("spark://" + masterPod.getMetadata().getName() + ":7077");
+
+                final String workerontroller = "spark-controller-worker";
+                ReplicationController rcSlave = new ReplicationControllerBuilder()
+                        .withNewMetadata().withName(workerontroller).addToLabels("server", "worker").endMetadata()
+                        .withNewSpec().withReplicas(1)
+                        .withNewTemplate()
+                        .withNewMetadata().addToLabels("server", "worker").endMetadata()
+                        .withNewSpec()
+                        .addNewContainer().withName("worker1").withImage(image)
+                        .addNewPort().withContainerPort(8081).withHostPort(8081).endPort()
+                        .addToEnv(sparkMaster)
+                        .endContainer()
+                        .endSpec()
+                        .endTemplate()
+                        .endSpec().build();
+
+
+                log("Created Slave RC", client.replicationControllers().inNamespace(namespace).create(rcSlave));
 
                 log("Root paths:", client.rootPaths());
 
@@ -123,6 +153,32 @@ public class ClusterMain {
             if (suppressed != null) {
                 for (Throwable t : suppressed) {
                     logger.error(t.getMessage(), t);
+                }
+            }
+        }
+    }
+
+    private static List<Pod> listPods(String namespace, KubernetesClient client) {
+        List<Pod> pods = client.pods().inNamespace(namespace).list().getItems();
+        log("pods", pods);
+        for (Pod pod: pods) {
+            log("name", pod.getMetadata().getName());
+            log("generated name", pod.getMetadata().getGenerateName());
+        }
+        return pods;
+    }
+
+    private static void traverseEndpoints(String namespace, KubernetesClient client) {
+        List<Endpoints> items = client.endpoints().inNamespace(namespace).list().getItems();
+        log("endpoints", items);
+        for (Endpoints endpoint : items) {
+            List<EndpointSubset> subsets = endpoint.getSubsets();
+            log("subsets", subsets);
+            for (EndpointSubset subset: subsets) {
+                List<EndpointAddress> addresses = subset.getAddresses();
+                log("addresses", addresses);
+                for (EndpointAddress address : addresses) {
+                    log("hostname: ", address.getHostname());
                 }
             }
         }
