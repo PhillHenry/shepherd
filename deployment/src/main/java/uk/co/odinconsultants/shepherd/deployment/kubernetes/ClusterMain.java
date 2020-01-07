@@ -43,8 +43,10 @@ public class ClusterMain {
     };
 
     public static void main(String[] args) throws InterruptedException {
+        final String namespace = "sparkshepherd";
+        final String image = "bde2020/spark-master:2.4.4-hadoop2.7";
+        final String controller = "nginx-controller";
         try (final KubernetesClient client = client(args)) {
-            String namespace = "sparkshepherd";
 
             try (Watch watch = client.replicationControllers().inNamespace(namespace).withResourceVersion("0").watch(watcher)) {
                 // Create a namespace for all our stuff
@@ -65,15 +67,22 @@ public class ClusterMain {
                     log("Skipping jobs example - extensions API group not available");
                 }
 
-                // Create an RC
+                // Create master
+
+                EnvVar initDaemonStep = new EnvVar();
+                initDaemonStep.setName("INIT_DAEMON_STEP");
+                initDaemonStep.setValue("setup_spark");
+
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName("nginx-controller").addToLabels("server", "nginx").endMetadata()
+                        .withNewMetadata().withName(controller).addToLabels("server", "nginx").endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
                         .withNewMetadata().addToLabels("server", "nginx").endMetadata()
                         .withNewSpec()
-                        .addNewContainer().withName("nginx").withImage("nginx")
-                        .addNewPort().withContainerPort(80).endPort()
+                        .addNewContainer().withName("nginx").withImage(image)
+                        .addNewPort().withContainerPort(8080).withHostPort(8080).endPort()
+                        .addNewPort().withContainerPort(7077).withHostPort(7077).endPort()
+                        .addToEnv(initDaemonStep)
                         .endContainer()
                         .endSpec()
                         .endTemplate()
@@ -81,107 +90,13 @@ public class ClusterMain {
 
                 log("Created RC", client.replicationControllers().inNamespace(namespace).create(rc));
 
-                log("Created RC with inline DSL",
-                        client.replicationControllers().inNamespace(namespace).createNew()
-                                .withNewMetadata().withName("nginx2-controller").addToLabels("server", "nginx").endMetadata()
-                                .withNewSpec().withReplicas(0)
-                                .withNewTemplate()
-                                .withNewMetadata().addToLabels("server", "nginx2").endMetadata()
-                                .withNewSpec()
-                                .addNewContainer().withName("nginx").withImage("nginx")
-                                .addNewPort().withContainerPort(80).endPort()
-                                .endContainer()
-                                .endSpec()
-                                .endTemplate()
-                                .endSpec().done());
-
-                // Get the RC by name in namespace
-                ReplicationController gotRc = client.replicationControllers().inNamespace(namespace).withName("nginx-controller").get();
-                log("Get RC by name in namespace", gotRc);
-                // Dump the RC as YAML
-//                log("Dump RC as YAML", SerializationUtils.dumpAsYaml(gotRc));
-//                log("Dump RC as YAML without state", SerializationUtils.dumpWithoutRuntimeStateAsYaml(gotRc));
-
-                // Get the RC by label
-                log("Get RC by label", client.replicationControllers().withLabel("server", "nginx").list());
-                // Get the RC without label
-                log("Get RC without label", client.replicationControllers().withoutLabel("server", "apache").list());
-                // Get the RC with label in
-                log("Get RC with label in", client.replicationControllers().withLabelIn("server", "nginx").list());
-                // Get the RC with label in
-                log("Get RC with label not in", client.replicationControllers().withLabelNotIn("server", "apache").list());
-                // Get the RC by label in namespace
-                log("Get RC by label in namespace", client.replicationControllers().inNamespace(namespace).withLabel("server", "nginx").list());
-                // Update the RC
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").cascading(false).edit().editMetadata().addToLabels("new", "label").endMetadata().done();
-
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").scale(1);
+                client.replicationControllers().inNamespace(namespace).withName(controller).scale(1);
 
                 Thread.sleep(1000);
 
-                // Update the RC - change the image to apache
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").edit().editSpec().editTemplate().withNewSpec()
-                        .addNewContainer().withName("nginx").withImage("httpd")
-                        .addNewPort().withContainerPort(80).endPort()
-                        .endContainer()
-                        .endSpec()
-                        .endTemplate()
-                        .endSpec().done();
-
-                Thread.sleep(1000);
-
-                // Update the RC - change the image back to nginx using a rolling update
-                // "Existing replica set doesn't exist"
-//                client.replicationControllers().inNamespace("thisisatest").withName("nginx-controller").rolling().updateImage("nginx");
-
-                Thread.sleep(1000);
-
-                // Update the RC via rolling update with inline builder
-                // java.lang.NoSuchMethodException: io.fabric8.kubernetes.api.model.apps.DoneableReplicaSet.<init>(io.fabric8.kubernetes.api.model.apps.ReplicaSet, io.fabric8.kubernetes.api.builder.Visitor)
-//                client.replicationControllers().inNamespace("thisisatest").withName("nginx-controller")
-//                        .rolling().edit().editMetadata().addToLabels("testing", "rolling-update").endMetadata().done();
-
-                Thread.sleep(1000);
-
-                //Update the RC inline
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").edit()
-                        .editMetadata()
-                        .addToLabels("another", "label")
-                        .endMetadata()
-                        .done();
-
-                log("Updated RC");
                 // Clean up the RC
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").delete();
-                client.replicationControllers().inNamespace(namespace).withName("nginx2-controller").delete();
+                client.replicationControllers().inNamespace(namespace).withName(controller).delete();
                 log("Deleted RCs");
-
-                //Create another RC inline
-                client.replicationControllers().inNamespace(namespace).createNew().withNewMetadata().withName("nginx-controller").addToLabels("server", "nginx").endMetadata()
-                        .withNewSpec().withReplicas(3)
-                        .withNewTemplate()
-                        .withNewMetadata().addToLabels("server", "nginx").endMetadata()
-                        .withNewSpec()
-                        .addNewContainer().withName("nginx").withImage("nginx")
-                        .addNewPort().withContainerPort(80).endPort()
-                        .endContainer()
-                        .endSpec()
-                        .endTemplate()
-                        .endSpec().done();
-                log("Created inline RC");
-
-                Thread.sleep(1000);
-
-                client.replicationControllers().inNamespace(namespace).withName("nginx-controller").delete();
-                log("Deleted RC");
-
-                log("Created RC", client.replicationControllers().inNamespace(namespace).create(rc));
-                client.replicationControllers().inAnyNamespace().withLabel("server", "nginx").delete();
-                log("Deleted RC by label");
-
-                log("Created RC", client.replicationControllers().inNamespace(namespace).create(rc));
-                client.replicationControllers().inNamespace(namespace).withField("metadata.name", "nginx-controller").delete();
-                log("Deleted RC by field");
 
                 log("Created service",
                         client.services().inNamespace(namespace).createNew()
@@ -190,8 +105,6 @@ public class ClusterMain {
                                 .addNewPort().withPort(80).withNewTargetPort().withIntVal(80).endTargetPort().endPort()
                                 .endSpec()
                                 .done());
-                log("Updated service", client.services().inNamespace(namespace).withName("testservice").edit().editMetadata().addToLabels("test", "label").endMetadata().done());
-                client.replicationControllers().inNamespace(namespace).withField("metadata.name", "testservice").delete();
                 log("Deleted service by field");
 
                 log("Root paths:", client.rootPaths());
