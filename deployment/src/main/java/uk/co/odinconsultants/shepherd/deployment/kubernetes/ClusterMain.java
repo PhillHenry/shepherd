@@ -45,7 +45,7 @@ public class ClusterMain {
     public static void main(String[] args) throws InterruptedException {
         final String namespace = "sparkshepherd";
         final String image = "bde2020/spark-master:2.4.4-hadoop2.7";
-        final String controller = "nginx-controller";
+        final String controller = "spark-controller";
         try (final KubernetesClient client = client(args)) {
 
             try (Watch watch = client.replicationControllers().inNamespace(namespace).withResourceVersion("0").watch(watcher)) {
@@ -74,13 +74,13 @@ public class ClusterMain {
                 initDaemonStep.setValue("setup_spark");
 
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(controller).addToLabels("server", "nginx").endMetadata()
+                        .withNewMetadata().withName(controller).addToLabels("server", "master").endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
-                        .withNewMetadata().addToLabels("server", "nginx").endMetadata()
+                        .withNewMetadata().addToLabels("server", "master").endMetadata()
                         .withNewSpec()
-                        .addNewContainer().withName("nginx").withImage(image)
-                        .addNewPort().withContainerPort(8080).withHostPort(8080).endPort()
+                        .addNewContainer().withName("master").withImage(image)
+                        .addNewPort().withContainerPort(8080).withHostPort(8080).withHostIP("127.0.0.1").endPort()
                         .addNewPort().withContainerPort(7077).withHostPort(7077).endPort()
                         .addToEnv(initDaemonStep)
                         .endContainer()
@@ -95,17 +95,16 @@ public class ClusterMain {
                 Thread.sleep(1000);
 
                 // Clean up the RC
-                client.replicationControllers().inNamespace(namespace).withName(controller).delete();
-                log("Deleted RCs");
+//                client.replicationControllers().inNamespace(namespace).withName(controller).delete();
+//                log("Deleted RCs");
 
-                log("Created service",
-                        client.services().inNamespace(namespace).createNew()
-                                .withNewMetadata().withName("testservice").endMetadata()
-                                .withNewSpec()
-                                .addNewPort().withPort(80).withNewTargetPort().withIntVal(80).endTargetPort().endPort()
-                                .endSpec()
-                                .done());
-                log("Deleted service by field");
+                Service service = client.services().inNamespace(namespace).createNew()
+                        .withNewMetadata().withName("spark-service").endMetadata()
+                        .withNewSpec()
+                        .addNewPort().withPort(80).withNewTargetPort().withIntVal(80).endTargetPort().endPort()
+                        .endSpec()
+                        .done();
+                log("Created service", service);
 
                 log("Root paths:", client.rootPaths());
 
