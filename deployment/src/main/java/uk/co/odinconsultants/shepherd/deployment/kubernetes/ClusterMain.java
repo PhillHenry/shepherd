@@ -87,7 +87,6 @@ public class ClusterMain {
                         .addNewPort().withContainerPort(8080).withHostPort(8080).endPort()
                         .addNewPort().withContainerPort(7077).withHostPort(7077).endPort()
                         .addToEnv(initDaemonStep)
-//                        .addToEnv(createEnvVar("constraint:node", "minikube"))
                         .endContainer()
                         .endSpec()
                         .endTemplate()
@@ -100,20 +99,14 @@ public class ClusterMain {
                 Thread.sleep(10000);
 
                 final String workerController = "spark-worker-1";
-                Map<String, String> selectors = new HashMap();
-                selectors.put("name", "spark-worker");
-                selectors.put("app", "spark-master");
                 Service service = client.services().inNamespace(namespace).createNew()
                         .withNewMetadata().withName("spark-service").endMetadata()
                         .withNewSpec()
                         .addNewPort().withPort(8080).withNodePort(31719).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
                         .withType("NodePort")
-                        .withSelector(selectors)
                         .endSpec()
                         .done();
                 log("Created service", service);
-
-                String apiVersion = client.replicationControllers().inNamespace(namespace).withName(masterController).fromServer().get().getApiVersion();
 
                 traverseEndpoints(namespace, client);
 
@@ -133,7 +126,6 @@ public class ClusterMain {
                         .addNewContainer().withName(workerController).withImage(workerImage)
                         .addNewPort().withContainerPort(8081).withHostPort(8081).endPort()
                         .addToEnv(createEnvVar("SPARK_MASTER", sparkMasterUrl))
-//                        .addToEnv(createEnvVar("constraint:node", "minikube"))
                         .endContainer()
                         .endSpec()
                         .endTemplate()
