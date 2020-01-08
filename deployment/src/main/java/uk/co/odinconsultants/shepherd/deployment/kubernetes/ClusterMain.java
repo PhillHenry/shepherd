@@ -7,7 +7,9 @@ import io.fabric8.kubernetes.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * see https://github.com/big-data-europe/docker-spark
@@ -46,8 +48,8 @@ public class ClusterMain {
 
     public static void main(String[] args) throws InterruptedException {
         final String namespace = "sparkshepherd";
-        final String image = "bde2020/spark-master:2.4.4-hadoop2.7";
-        final String masterController = "spark-controller";
+        final String masterImage = "bde2020/spark-master:2.4.4-hadoop2.7";
+        final String masterController = "spark-master";
         try (final KubernetesClient client = client(args)) {
 
             try (Watch watch = client.replicationControllers().inNamespace(namespace).withResourceVersion("0").watch(watcher)) {
@@ -60,7 +62,7 @@ public class ClusterMain {
                 // Get the namespace by label
                 log("Get namespace by label", client.namespaces().withLabel("this", "rocks").list());
 
-                ResourceQuota quota = new ResourceQuotaBuilder().withNewMetadata().withName("pod-quota").endMetadata().withNewSpec().addToHard("pods", new Quantity("2")).endSpec().build();
+                ResourceQuota quota = new ResourceQuotaBuilder().withNewMetadata().withName("pod-quota").endMetadata().withNewSpec().addToHard("pods", new Quantity("3")).endSpec().build();
                 log("Create resource quota", client.resourceQuotas().inNamespace(namespace).create(quota));
 
                 try {
@@ -76,15 +78,16 @@ public class ClusterMain {
                 initDaemonStep.setValue("setup_spark");
 
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(masterController).addToLabels("server", "master").endMetadata()
+                        .withNewMetadata().withName(masterController).addToLabels("app", "spark-master").endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
-                        .withNewMetadata().addToLabels("server", "master").endMetadata()
+                        .withNewMetadata().addToLabels("app", "spark-master").endMetadata()
                         .withNewSpec()
-                        .addNewContainer().withName("master").withImage(image)
+                        .addNewContainer().withName(masterController).withImage(masterImage)
                         .addNewPort().withContainerPort(8080).withHostPort(8080).endPort()
                         .addNewPort().withContainerPort(7077).withHostPort(7077).endPort()
                         .addToEnv(initDaemonStep)
+//                        .addToEnv(createEnvVar("constraint:node", "minikube"))
                         .endContainer()
                         .endSpec()
                         .endTemplate()
@@ -96,13 +99,16 @@ public class ClusterMain {
 
                 Thread.sleep(10000);
 
-
+                final String workerController = "spark-worker-1";
+                Map<String, String> selectors = new HashMap();
+                selectors.put("name", "spark-worker");
+                selectors.put("app", "spark-master");
                 Service service = client.services().inNamespace(namespace).createNew()
                         .withNewMetadata().withName("spark-service").endMetadata()
                         .withNewSpec()
                         .addNewPort().withPort(8080).withNodePort(31719).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
                         .withType("NodePort")
-//                        .withSelector()
+                        .withSelector(selectors)
                         .endSpec()
                         .done();
                 log("Created service", service);
@@ -114,21 +120,20 @@ public class ClusterMain {
                 List<Pod> pods = listPods(namespace, client);
 
                 Pod masterPod = pods.get(0);
+                String sparkMasterUrl = "spark://" + masterPod.getStatus().getHostIP() + ":7077";
+                log("sparkMasterUrl", sparkMasterUrl);
 
-                EnvVar sparkMaster = new EnvVar();
-                sparkMaster.setName("SPARK_MASTER");
-                sparkMaster.setValue("spark://" + masterPod.getMetadata().getName() + ":7077");
-
-                final String workerontroller = "spark-controller-worker";
+                String workerImage = "bde2020/spark-worker:2.4.4-hadoop2.7";
                 ReplicationController rcSlave = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(workerontroller).addToLabels("server", "worker").endMetadata()
+                        .withNewMetadata().withName(workerController).addToLabels("app", "spark-worker").endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
-                        .withNewMetadata().addToLabels("server", "worker").endMetadata()
+                        .withNewMetadata().addToLabels("app", "spark-worker").endMetadata()
                         .withNewSpec()
-                        .addNewContainer().withName("worker1").withImage(image)
+                        .addNewContainer().withName(workerController).withImage(workerImage)
                         .addNewPort().withContainerPort(8081).withHostPort(8081).endPort()
-                        .addToEnv(sparkMaster)
+                        .addToEnv(createEnvVar("SPARK_MASTER", sparkMasterUrl))
+//                        .addToEnv(createEnvVar("constraint:node", "minikube"))
                         .endContainer()
                         .endSpec()
                         .endTemplate()
@@ -140,6 +145,7 @@ public class ClusterMain {
                 log("Root paths:", client.rootPaths());
 
             } finally {
+                listPods(namespace, client);
                 // And finally clean up the namespace
                 client.namespaces().withName(namespace).delete();
                 log("Deleted namespace");
@@ -156,6 +162,13 @@ public class ClusterMain {
                 }
             }
         }
+    }
+
+    private static EnvVar createEnvVar(String key, String value) {
+        EnvVar env = new EnvVar();
+        env.setName(key);
+        env.setValue(value);
+        return env;
     }
 
     private static List<Pod> listPods(String namespace, KubernetesClient client) {
