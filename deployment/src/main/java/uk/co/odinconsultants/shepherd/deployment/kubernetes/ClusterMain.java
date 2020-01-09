@@ -99,15 +99,15 @@ public class ClusterMain {
                 Thread.sleep(10000);
 
                 final String workerController = "spark-worker-1";
-                Service service = client.services().inNamespace(namespace).createNew()
-                        .withNewMetadata().withName("spark-service").endMetadata()
-                        .withNewSpec()
-                        .addNewPort().withName("sparkgui").withPort(8080).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
-                        .addNewPort().withName("sparkcli").withPort(7077).withNewTargetPort().withIntVal(7077).endTargetPort().endPort()
-                        .withType("NodePort")
-                        .endSpec()
-                        .done();
-                log("Created service", service);
+//                Service service = client.services().inNamespace(namespace).createNew()
+//                        .withNewMetadata().withName("spark-service").endMetadata()
+//                        .withNewSpec()
+//                        .addNewPort().withName("sparkgui").withPort(8080).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
+//                        .addNewPort().withName("sparkcli").withPort(7077).withNewTargetPort().withIntVal(7077).endTargetPort().endPort()
+//                        .withType("NodePort")
+//                        .endSpec()
+//                        .done();
+//                log("Created service", service);
 
                 traverseEndpoints(namespace, client);
 
@@ -135,7 +135,7 @@ public class ClusterMain {
 
                 log("Created Slave RC", client.replicationControllers().inNamespace(namespace).create(rcSlave));
 
-                log("Root paths:", client.rootPaths());
+                log("STARTED!! Root paths:", client.rootPaths());
 
             } finally {
                 listPods(namespace, client);
