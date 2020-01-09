@@ -84,13 +84,15 @@ public class ClusterMain {
                         .withNewMetadata().addToLabels("app", "spark-master").endMetadata()
                         .withNewSpec()
                         .addNewContainer().withName(masterController).withImage(masterImage)
+                        .addNewPort().withName("sparkmastercli").withHostIP("192.168.99.100").withContainerPort(7077).withHostPort(7077).endPort()
                         .addNewPort().withName("sparkmastergui").withContainerPort(8080).withHostPort(8080).endPort()
-                        .addNewPort().withName("sparkmastercli").withContainerPort(7077).withHostPort(7077).endPort()
                         .addToEnv(initDaemonStep)
                         .endContainer()
                         .endSpec()
                         .endTemplate()
                         .endSpec().build();
+
+//                client.endpoints().inNamespace(namespace).createNew().
 
                 log("Created RC", client.replicationControllers().inNamespace(namespace).create(rc));
 
@@ -114,8 +116,20 @@ public class ClusterMain {
                 List<Pod> pods = listPods(namespace, client);
 
                 Pod masterPod = pods.get(0);
-                String sparkMasterUrl = "spark://" + masterPod.getStatus().getHostIP() + ":7077";
+                String masterPodHostIP = masterPod.getStatus().getHostIP();
+                String sparkMasterUrl = "spark://" + masterPodHostIP + ":7077";
                 log("sparkMasterUrl", sparkMasterUrl);
+
+                String masterPodName = masterPod.getMetadata().getName();
+                log("masterPodName", masterPodName);
+                //Message: Pod "spark-master-ld68s" is invalid: spec: Forbidden: pod updates may not change fields other than `spec.containers[*].image`, `spec.initContainers[*].image`, `spec.activeDeadlineSeconds` or `spec.tolerations` (only additions to existing tolerations)
+//                client.pods().inNamespace(namespace).withName(masterPodName).edit().editSpec().editFirstContainer().editFirstPort().withHostIP(masterPodHostIP).endPort().endContainer().endSpec().done();
+
+                List<ContainerPort> containerPorts = masterPod.getSpec().getContainers().get(0).getPorts();
+                for (ContainerPort containerPort : containerPorts) {
+                    log("containerPort", containerPort);
+                }
+//                LocalPortForward portForward = client.pods().inNamespace(namespace).withName(masterPodName).portForward(7077, 7077);
 
                 String workerImage = "bde2020/spark-worker:2.4.4-hadoop2.7";
                 ReplicationController rcSlave = new ReplicationControllerBuilder()
@@ -137,6 +151,9 @@ public class ClusterMain {
 
                 log("STARTED!! Root paths:", client.rootPaths());
 
+                // Then you can run:
+                // kubectl run spark-base --rm -it --labels="app=spark-client" --image bde2020/spark-base:2.4.4-hadoop2.7 -- bash ./spark/bin/spark-shell --master spark://192.168.99.100:7077
+                // where 192.168.99.100 is your Minikube IP address
             } finally {
                 listPods(namespace, client);
                 // And finally clean up the namespace
