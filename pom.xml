@@ -8,6 +8,7 @@
         <module>deployment</module>
         <module>spark_integration_tests</module>
         <module>spark_shepherd</module>
+      <module>shepherd_pathologies</module>
     </modules>
     <name>${project.artifactId}</name>
   <description>Diagnoses Big Data issues.</description>
@@ -27,6 +28,7 @@
     <scala.version>2.12.8</scala.version>
     <scala.compat.version>2.12</scala.compat.version>
     <spark.version>2.4.3</spark.version>
+    <hadoop.version>2.6.5</hadoop.version>
   </properties>
 
   <dependencies>

@@ -8,7 +8,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
+    <description>For creating an environment on which to test the Shepherds.</description>
     <artifactId>deployment</artifactId>
 
     <properties>

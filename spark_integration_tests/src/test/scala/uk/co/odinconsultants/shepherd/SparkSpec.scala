@@ -1,9 +1,10 @@
 package uk.co.odinconsultants.shepherd
 
 import org.scalatest.{Matchers, WordSpec}
-
 import uk.co.odinconsultants.htesting.hdfs.HdfsForTesting._
 import uk.co.odinconsultants.htesting.spark.SparkForTesting._
+import uk.co.odinconsultants.pathologies.Unbalanced
+import uk.co.odinconsultants.pathologies.Unbalanced.write
 
 class SparkSpec extends WordSpec with Matchers {
 
@@ -11,13 +12,17 @@ class SparkSpec extends WordSpec with Matchers {
 
   "Spark" should {
 
-    val a = (1 to 10).map(i => i -> i.toString)
-    val b = (1 to 100).map(i => i -> i.toString)
+    val baseFilename = hdfsUri + System.currentTimeMillis()
+
+    val filenameA = s"${baseFilename}_A"
+    val filenameB = s"${baseFilename}_B"
+    write(10L, session, filenameA, "parquet")
+    write(100L, session, filenameB, "parquet")
 
     "be up and running" in {
       val idField = "id"
-      val dfA = a.toDF(idField, "value")
-      val dfB = b.toDF(idField, "value")
+      val dfA = session.read.parquet(filenameA)
+      val dfB = session.read.parquet(filenameB)
 
       dfA.join(dfB, dfA(idField) === dfB(idField)).count() shouldBe 10
     }
