@@ -15,8 +15,9 @@ class SparkSpec extends WordSpec with Matchers {
 
     val filenameA = s"${baseFilename}_A"
     val filenameB = s"${baseFilename}_B"
-    val dfA = write(10L, session, filenameA, "parquet")
-    val dfB = write(100L, session, filenameB, "parquet")
+    val ratio     = 0.9f
+    val dfA = write(10L, session, filenameA, "parquet", ratio)
+    val dfB = write(100L, session, filenameB, "parquet", ratio)
 
     "be up and running" in {
       dfA.join(dfB, dfA(idField) === dfB(idField)).count() shouldBe 10
