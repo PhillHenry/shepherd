@@ -6,6 +6,8 @@
     <version>1.0-SNAPSHOT</version>
     <modules>
         <module>deployment</module>
+        <module>spark_integration_tests</module>
+        <module>spark_shepherd</module>
     </modules>
     <name>${project.artifactId}</name>
   <description>Diagnoses Big Data issues.</description>
@@ -24,6 +26,7 @@
     <encoding>UTF-8</encoding>
     <scala.version>2.12.8</scala.version>
     <scala.compat.version>2.12</scala.compat.version>
+    <spark.version>2.4.3</spark.version>
   </properties>
 
   <dependencies>
