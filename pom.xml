@@ -145,12 +145,10 @@
       <name>Maven Central Repository</name>
       <url>http://central.maven.org/maven2/</url>
     </repository>
-<!--
     <repository>
       <id>sonatype-shapshot</id>
       <name>Sonatype Snapshot Repository</name>
       <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </repository>
--->
   </repositories>
 </project>
