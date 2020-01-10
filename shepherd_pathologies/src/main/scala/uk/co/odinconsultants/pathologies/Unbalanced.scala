@@ -15,12 +15,15 @@ object Unbalanced extends Serializable {
   def classBySplit(limit: Long)(i: Long): String = if (i < limit) LARGE_CLASS else SMALL_CLASS
 
   def write(n: Long, session: SparkSession, filename: String, format: String, ratio: Float): DataFrame = {
-    import session.implicits._
-    val limit             = (n * ratio).toLong
-    val classificationFn  = classBySplit(limit) _
-    val df                = session.range(n).map(i => Datum(i, classificationFn(i)))
+    val df = twoCategories(n, session, ratio)
     df.write.format(format).save(filename)
     session.read.format(format).load(filename)
   }
 
+  def twoCategories(n: Long, session: SparkSession, ratio: Float): Dataset[Datum] = {
+    import session.implicits._
+    val limit             = (n * ratio).toLong
+    val classificationFn  = classBySplit(limit) _
+    session.range(n).map(i => Datum(i, classificationFn(i)))
+  }
 }

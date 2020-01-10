@@ -1,14 +1,12 @@
 package uk.co.odinconsultants.shepherd
 
+import org.apache.spark.sql.functions._
 import org.scalatest.{Matchers, WordSpec}
 import uk.co.odinconsultants.htesting.hdfs.HdfsForTesting._
 import uk.co.odinconsultants.htesting.spark.SparkForTesting._
 import uk.co.odinconsultants.pathologies.Unbalanced._
-import org.apache.spark.sql.functions._
 
 class SparkSpec extends WordSpec with Matchers {
-
-  import session.implicits._
 
   "Imbalanced data" should {
 
@@ -27,7 +25,7 @@ class SparkSpec extends WordSpec with Matchers {
       class2Count(SMALL_CLASS) shouldBe 1
     }
     "joinable" in {
-      dfA.join(dfB, dfA(idField) === dfB(idField)).count() shouldBe 10
+      dfA.join(dfB, dfA(idField) <=> dfB(idField)).count() shouldBe 10
     }
   }
 

@@ -78,7 +78,7 @@ public class ClusterMain {
                 initDaemonStep.setValue("setup_spark");
 
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(masterController).addToLabels("app", "spark-master").endMetadata()
+                        .withNewMetadata().withName(masterController).addToLabels("app", masterController).endMetadata()
                         .withNewSpec().withReplicas(1)
                         .withNewTemplate()
                         .withNewMetadata().addToLabels("app", "spark-master").endMetadata()
@@ -101,15 +101,17 @@ public class ClusterMain {
                 Thread.sleep(10000);
 
                 final String workerController = "spark-worker-1";
-//                Service service = client.services().inNamespace(namespace).createNew()
-//                        .withNewMetadata().withName("spark-service").endMetadata()
-//                        .withNewSpec()
-//                        .addNewPort().withName("sparkgui").withPort(8080).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
-//                        .addNewPort().withName("sparkcli").withPort(7077).withNewTargetPort().withIntVal(7077).endTargetPort().endPort()
-//                        .withType("NodePort")
-//                        .endSpec()
-//                        .done();
-//                log("Created service", service);
+                String serviceName = "spark-service";
+                Service service = client.services().inNamespace(namespace).createNew()
+                        .withNewMetadata().withName(serviceName).endMetadata()
+                        .withNewSpec()
+                        .addNewPort().withName("sparkgui").withPort(8080).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
+                        .addNewPort().withName("sparkcli").withPort(7077).withNewTargetPort().withIntVal(7077).endTargetPort().endPort()
+                        .withType("NodePort")
+//                        .addToSelector("component", masterController)
+                        .endSpec()
+                        .done();
+                log("Created service", service);
 
                 traverseEndpoints(namespace, client);
 
@@ -148,6 +150,16 @@ public class ClusterMain {
 
 
                 log("Created Slave RC", client.replicationControllers().inNamespace(namespace).create(rcSlave));
+
+                client.extensions().ingresses().inNamespace(namespace).createNew()
+                        .withNewMetadata().withName("sparkingress").endMetadata()
+                        .withNewSpec()
+                        .withRules()
+                            .withNewBackend()
+                                .withServiceName(masterController)
+                                .withNewServicePort().withIntVal(7077).endServicePort()
+                            .endBackend()
+                        .endSpec().done();
 
                 log("STARTED!! Root paths:", client.rootPaths());
 
