@@ -12,7 +12,7 @@ class SkewSpec extends WordSpec with Matchers {
 
   "partitioning on imbalanced column" should {
     "skew the partition populations" in {
-      val repartitioned = df.repartition(2, col(valueField))
+      val repartitioned = dfFromDisk.repartition(2, col(valueField))
       val populations   = partitionPopulations(repartitioned)
       populations should have size 2
       populations should contain (expectedLarge)

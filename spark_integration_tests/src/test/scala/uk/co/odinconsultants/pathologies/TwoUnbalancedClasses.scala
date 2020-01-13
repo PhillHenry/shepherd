@@ -13,7 +13,7 @@ object TwoUnbalancedClasses {
   val ratio         = 0.9f
   val expectedNumA  = 10L
   val expectedNumB  = 100L
-  val df            = writeThenRead(expectedNumA,  session, filenameA, "parquet", ratio)
+  val dfFromDisk    = writeThenRead(expectedNumA,  session, filenameA, "parquet", ratio)
   val expectedLarge = (expectedNumA * ratio).toLong
   val expectedSmall = (expectedNumA * (1f - ratio)).toLong
 

@@ -10,7 +10,7 @@ class UnbalancedSpec extends WordSpec with Matchers {
 
   "Imbalanced data" should {
     "belong to different classes" in {
-      val aggregated    = df.groupBy(valueField).agg(count(col(valueField)))
+      val aggregated    = dfFromDisk.groupBy(valueField).agg(count(col(valueField)))
       val class2Count   = aggregated.collect().map(r => r.getString(0) -> r.getLong(1)).toMap
       class2Count(LARGE_CLASS) shouldBe expectedLarge
       class2Count(SMALL_CLASS) shouldBe expectedSmall
