@@ -6,14 +6,12 @@ import uk.co.odinconsultants.pathologies.Unbalanced._
 
 class UnbalancedSpec extends WordSpec with Matchers {
 
-  import UnbalancedData._
+  import TwoUnbalancedClasses._
 
   "Imbalanced data" should {
     "belong to different classes" in {
-      val df            = dfA.groupBy(valueField).agg(count(col(valueField)))
-      val class2Count   = df.collect().map(r => r.getString(0) -> r.getLong(1)).toMap
-      val expectedLarge = (expectedNumA * ratio).toLong
-      val expectedSmall = (expectedNumA * (1f - ratio)).toLong
+      val aggregated    = df.groupBy(valueField).agg(count(col(valueField)))
+      val class2Count   = aggregated.collect().map(r => r.getString(0) -> r.getLong(1)).toMap
       class2Count(LARGE_CLASS) shouldBe expectedLarge
       class2Count(SMALL_CLASS) shouldBe expectedSmall
     }

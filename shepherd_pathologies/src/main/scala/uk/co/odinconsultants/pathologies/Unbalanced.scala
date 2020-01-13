@@ -14,7 +14,7 @@ object Unbalanced extends Serializable {
 
   def classBySplit(limit: Long)(i: Long): String = if (i < limit) LARGE_CLASS else SMALL_CLASS
 
-  def write(n: Long, session: SparkSession, filename: String, format: String, ratio: Float): DataFrame = {
+  def writeThenRead(n: Long, session: SparkSession, filename: String, format: String, ratio: Float): DataFrame = {
     val df = twoCategories(n, session, ratio)
     df.write.format(format).save(filename)
     session.read.format(format).load(filename)
