@@ -48,7 +48,7 @@ public class ClusterMain {
 
     public static void main(String[] args) throws InterruptedException {
         final String namespace = "sparkshepherd";
-        final String masterImage = "bde2020/spark-master:2.4.4-hadoop2.7";
+        final String masterImage = "bde2020/spark-master:2.4.0-hadoop2.8-scala2.12";
         final String masterController = "spark-master";
         try (final KubernetesClient client = client(args)) {
 
@@ -133,7 +133,7 @@ public class ClusterMain {
                 }
 //                LocalPortForward portForward = client.pods().inNamespace(namespace).withName(masterPodName).portForward(7077, 7077);
 
-                String workerImage = "bde2020/spark-worker:2.4.4-hadoop2.7";
+                String workerImage = "bde2020/spark-worker:2.4.0-hadoop2.8-scala2.12";
                 ReplicationController rcSlave = new ReplicationControllerBuilder()
                         .withNewMetadata().withName(workerController).addToLabels("app", "spark-worker").endMetadata()
                         .withNewSpec().withReplicas(1)
