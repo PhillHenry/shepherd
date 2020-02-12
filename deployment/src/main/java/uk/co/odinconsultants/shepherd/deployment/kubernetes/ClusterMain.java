@@ -7,6 +7,7 @@ import io.fabric8.kubernetes.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,7 @@ public class ClusterMain {
                 // Get the namespace by label
                 log("Get namespace by label", client.namespaces().withLabel("this", "rocks").list());
 
-                ResourceQuota quota = new ResourceQuotaBuilder().withNewMetadata().withName("pod-quota").endMetadata().withNewSpec().addToHard("pods", new Quantity("3")).endSpec().build();
+                ResourceQuota quota = new ResourceQuotaBuilder().withNewMetadata().withName("pod-quota").endMetadata().withNewSpec().addToHard("pods", new Quantity("4")).endSpec().build();
                 log("Create resource quota", client.resourceQuotas().inNamespace(namespace).create(quota));
 
                 try {
@@ -118,7 +119,7 @@ public class ClusterMain {
                 List<Pod> pods = listPods(namespace, client);
 
                 Pod masterPod = pods.get(0);
-                String masterPodHostIP = masterPod.getStatus().getHostIP();
+                String masterPodHostIP = masterPod.getStatus().getPodIP();
                 String sparkMasterUrl = "spark://" + masterPodHostIP + ":7077";
                 log("sparkMasterUrl", sparkMasterUrl);
 
@@ -132,14 +133,17 @@ public class ClusterMain {
                     log("containerPort", containerPort);
                 }
 //                LocalPortForward portForward = client.pods().inNamespace(namespace).withName(masterPodName).portForward(7077, 7077);
+                List<String> aliasNames = new ArrayList();
+                aliasNames.add(masterPodName);
+                HostAlias hostAlias = new HostAlias(aliasNames, masterPodHostIP);
 
                 String workerImage = "bde2020/spark-worker:2.4.0-hadoop2.8-scala2.12";
                 ReplicationController rcSlave = new ReplicationControllerBuilder()
                         .withNewMetadata().withName(workerController).addToLabels("app", "spark-worker").endMetadata()
-                        .withNewSpec().withReplicas(1)
+                        .withNewSpec().withReplicas(2)
                         .withNewTemplate()
                         .withNewMetadata().addToLabels("app", "spark-worker").endMetadata()
-                        .withNewSpec()
+                        .withNewSpec().withHostAliases(hostAlias)
                         .addNewContainer().withName(workerController).withImage(workerImage)
                         .addNewPort().withContainerPort(8081).withHostPort(8081).endPort()
                         .addToEnv(createEnvVar("SPARK_MASTER", sparkMasterUrl))
