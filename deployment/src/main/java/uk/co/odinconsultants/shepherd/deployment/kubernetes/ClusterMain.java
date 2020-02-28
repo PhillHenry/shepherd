@@ -79,19 +79,26 @@ public class ClusterMain {
                 initDaemonStep.setValue("setup_spark");
 
                 ReplicationController rc = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(masterController).addToLabels("app", masterController).endMetadata()
-                        .withNewSpec().withReplicas(1)
-                        .withNewTemplate()
-                        .withNewMetadata().addToLabels("app", "spark-master").endMetadata()
+                        .withNewMetadata()
+                            .withName(masterController).addToLabels("app", masterController)
+                        .endMetadata()
                         .withNewSpec()
-                        .addNewContainer().withName(masterController).withImage(masterImage)
-                        .addNewPort().withName("sparkmastercli").withHostIP("192.168.99.100").withContainerPort(7077).withHostPort(7077).endPort()
-                        .addNewPort().withName("sparkmastergui").withContainerPort(8080).withHostPort(8080).endPort()
-                        .addToEnv(initDaemonStep)
-                        .endContainer()
+                            .withReplicas(1)
+                            .withNewTemplate()
+                                .withNewMetadata()
+                                    .addToLabels("app", "spark-master")
+                                .endMetadata()
+                                .withNewSpec()
+                                    .addNewContainer()
+                                        .withName(masterController).withImage(masterImage)
+                                        .addNewPort().withName("sparkmastercli").withHostIP("192.168.99.100").withContainerPort(7077).withHostPort(7077).endPort()
+                                        .addNewPort().withName("sparkmastergui").withContainerPort(8080).withHostPort(8080).endPort()
+                                        .addToEnv(initDaemonStep)
+                                    .endContainer()
+                                .endSpec()
+                            .endTemplate()
                         .endSpec()
-                        .endTemplate()
-                        .endSpec().build();
+                    .build();
 
 //                client.endpoints().inNamespace(namespace).createNew().
 
@@ -104,14 +111,28 @@ public class ClusterMain {
                 final String workerController = "spark-worker-1";
                 String serviceName = "spark-service";
                 Service service = client.services().inNamespace(namespace).createNew()
-                        .withNewMetadata().withName(serviceName).endMetadata()
+                        .withNewMetadata()
+                            .withName(serviceName)
+                        .endMetadata()
                         .withNewSpec()
-                        .addNewPort().withName("sparkgui").withPort(8080).withNewTargetPort().withIntVal(8080).endTargetPort().endPort()
-                        .addNewPort().withName("sparkcli").withPort(7077).withNewTargetPort().withIntVal(7077).endTargetPort().endPort()
-                        .withType("NodePort")
-//                        .addToSelector("component", masterController)
+                            .addNewPort()
+                                .withName("sparkgui")
+                                .withPort(8080)
+                                .withNewTargetPort()
+                                    .withIntVal(8080)
+                                .endTargetPort()
+                            .endPort()
+                            .addNewPort()
+                                .withName("sparkcli")
+                                .withPort(7077)
+                                .withNewTargetPort()
+                                    .withIntVal(7077)
+                                .endTargetPort()
+                            .endPort()
+                            .withType("NodePort")
+    //                        .addToSelector("component", masterController)
                         .endSpec()
-                        .done();
+                    .done();
                 log("Created service", service);
 
                 traverseEndpoints(namespace, client);
@@ -139,31 +160,40 @@ public class ClusterMain {
 
                 String workerImage = "bde2020/spark-worker:2.4.0-hadoop2.8-scala2.12";
                 ReplicationController rcSlave = new ReplicationControllerBuilder()
-                        .withNewMetadata().withName(workerController).addToLabels("app", "spark-worker").endMetadata()
+                        .withNewMetadata()
+                            .withName(workerController)
+                            .addToLabels("app", "spark-worker")
+                        .endMetadata()
                         .withNewSpec().withReplicas(2)
-                        .withNewTemplate()
-                        .withNewMetadata().addToLabels("app", "spark-worker").endMetadata()
-                        .withNewSpec().withHostAliases(hostAlias)
-                        .addNewContainer().withName(workerController).withImage(workerImage)
-                        .addNewPort().withContainerPort(8081).withHostPort(8081).endPort()
-                        .addToEnv(createEnvVar("SPARK_MASTER", sparkMasterUrl))
-                        .endContainer()
+                            .withNewTemplate()
+                            .withNewMetadata().addToLabels("app", "spark-worker").endMetadata()
+                                .withNewSpec()
+                                    .withHostAliases(hostAlias)
+                                    .addNewContainer().withName(workerController).withImage(workerImage)
+                                        .addNewPort()
+                                            .withContainerPort(8081).withHostPort(8081)
+                                        .endPort()
+                                        .addToEnv(createEnvVar("SPARK_MASTER", sparkMasterUrl))
+                                    .endContainer()
+                                .endSpec()
+                            .endTemplate()
                         .endSpec()
-                        .endTemplate()
-                        .endSpec().build();
-
+                    .build();
 
                 log("Created Slave RC", client.replicationControllers().inNamespace(namespace).create(rcSlave));
 
                 client.extensions().ingresses().inNamespace(namespace).createNew()
-                        .withNewMetadata().withName("sparkingress").endMetadata()
+                        .withNewMetadata()
+                            .withName("sparkingress")
+                        .endMetadata()
                         .withNewSpec()
-                        .withRules()
+                            .withRules()
                             .withNewBackend()
                                 .withServiceName(masterController)
                                 .withNewServicePort().withIntVal(7077).endServicePort()
                             .endBackend()
-                        .endSpec().done();
+                        .endSpec()
+                    .done();
 
                 log("STARTED!! Root paths:", client.rootPaths());
 
