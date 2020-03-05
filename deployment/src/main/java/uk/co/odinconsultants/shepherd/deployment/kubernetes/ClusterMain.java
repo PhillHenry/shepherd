@@ -120,30 +120,6 @@ public class ClusterMain {
 
                 final String workerController = "spark-worker-1";
                 String serviceName = "spark-service";
-                Service service = client.services().inNamespace(namespace).createNew()
-                        .withNewMetadata()
-                            .withName(serviceName)
-                        .endMetadata()
-                        .withNewSpec()
-                            .addNewPort()
-                                .withName("sparkgui")
-                                .withPort(8080)
-                                .withNewTargetPort()
-                                    .withIntVal(8080)
-                                .endTargetPort()
-                            .endPort()
-                            .addNewPort()
-                                .withName("sparkcli")
-                                .withPort(7077)
-                                .withNewTargetPort()
-                                    .withIntVal(7077)
-                                .endTargetPort()
-                            .endPort()
-                            .withType("NodePort")
-    //                        .addToSelector("component", masterController)
-                        .endSpec()
-                    .done();
-                log("Created service", service);
 
                 traverseEndpoints(namespace, client);
 
