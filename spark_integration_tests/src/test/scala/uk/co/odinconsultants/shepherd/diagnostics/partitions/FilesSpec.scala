@@ -12,9 +12,11 @@ class FilesSpec extends WordSpec with Matchers {
     "have stats associed with it" in {
       val fileStats = filesStatsOf(dfFromDisk)
       fileStats should not be empty
-      withClue(fileStats.mkString("\n")) {
+      withClue(s"fileStats:\n${fileStats.mkString("\n")}") {
+        println(s"fileStats:\n${fileStats.mkString("\n")}")
         val valueStats = fileStats.filter { case ((_, column), _) => column == valueField }
-        valueStats.values.map(_.minAsString).min shouldBe LARGE_CLASS
+        println(s"valueStats:\n${valueStats.mkString("\n")}")
+        valueStats.values.map(x => if (x.minAsString == null) "null" else x.minAsString).min shouldBe LARGE_CLASS
       }
     }
   }
