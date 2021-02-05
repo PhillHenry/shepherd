@@ -16,7 +16,7 @@ class FilesSpec extends WordSpec with Matchers {
         println(s"fileStats:\n${fileStats.mkString("\n")}")
         val valueStats = fileStats.filter { case ((_, column), _) => column == valueField }
         println(s"valueStats:\n${valueStats.mkString("\n")}")
-        valueStats.values.map(x => if (x.minAsString == null) "null" else x.minAsString).min shouldBe LARGE_CLASS
+        valueStats.values.map(x => s"${x.minAsString}").min shouldBe LARGE_CLASS
       }
     }
   }
